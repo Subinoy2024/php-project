@@ -1,42 +1,55 @@
 pipeline {
     agent any
-    stages{
-        stage('git cloned'){
-            steps{
-                git url:'https://github.com/Subinoy2024/php-project.git', branch: "master"
-              
-            }
-        }
-        stage('Build docker image'){
-            steps{
-                script{
-                    sh 'docker build -t dccloudimage/5sepimage:v1 .'
-                    sh 'docker images'
-                }
-            }
-        }
-          stage('Docker login') {
+
+    stages {
+
+        stage('Git Clone') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-pwd', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh "echo $PASS | docker login -u $USER --password-stdin"
-                    sh 'docker push dccloudimage/5sepimage:v1'
-                }
+                git url: 'https://github.com/Subinoy2024/php-project.git', branch: 'master'
             }
         }
-        
-     stage('Deploy') {
+
+        stage('Build Docker Image') {
             steps {
-               script {
-                   def dockerrm = 'sudo docker rm -f My-first-containe2211 || true'
-                    def dockerCmd = 'sudo docker run -itd --name My-first-containe2211 -p 8083:80 dccloudimage/5sepimage:v1'
-                    sshagent(['sshkeypair']) {
-                        //chnage the private ip in below code
-                        // sh "docker run -itd --name My-first-containe2111 -p 8083:80 akshu20791/2febimg:v1"
-                         sh "ssh -o StrictHostKeyChecking=no vmadmin@192.168.68.106 ${dockerrm}"
-                         sh "ssh -o StrictHostKeyChecking=no vmadmin@192.168.68.104 ${dockerCmd}"
-                    }
+                sh 'docker build -t dccloudimage/5sepimage:v1 .'
+                sh 'docker images'
+            }
+        }
+
+        stage('Docker Login & Push') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-pwd',
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
+
+                    sh '''
+                    echo $PASS | docker login -u $USER --password-stdin
+                    docker push dccloudimage/5sepimage:v1
+                    '''
                 }
             }
         }
+
+        stage('Deploy') {
+            steps {
+
+                withCredentials([usernamePassword(
+                    credentialsId: 'vm-login',
+                    usernameVariable: 'VM_USER',
+                    passwordVariable: 'VM_PASS'
+                )]) {
+
+                    sh '''
+                    sshpass -p $VM_PASS ssh -o StrictHostKeyChecking=no vmadmin@192.168.68.104 "docker rm -f My-first-containe2211 || true"
+
+                    sshpass -p $VM_PASS ssh -o StrictHostKeyChecking=no vmadmin@192.168.68.104 "docker run -itd --name My-first-containe2211 -p 8083:80 dccloudimage/5sepimage:v1"
+                    '''
+                }
+
+            }
+        }
+
     }
 }
